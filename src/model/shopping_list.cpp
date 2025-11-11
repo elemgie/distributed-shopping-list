@@ -1,0 +1,38 @@
+#include "shopping_list.hpp"
+#include <stdexcept>
+
+using namespace std;
+
+ShoppingList::ShoppingList() : uid(0) {}
+
+void ShoppingList::add(const ShoppingItem& item) {
+    if (this -> contains(item)) {
+        throw invalid_argument("Item with the same UID already exists in the shopping list");
+    }
+    items.emplace(item.getUid(), item);
+}
+
+bool ShoppingList::remove(const ShoppingItem& item) {
+    return items.erase(item.getUid()) > 0;
+}
+
+bool ShoppingList::contains(const ShoppingItem& item) const {
+    return items.find(item.getUid()) != items.end();
+}
+
+ShoppingItem& ShoppingList::getItem(uint32_t uid) {
+    auto it = items.find(uid);
+    if (it == items.end()) {
+        throw std::invalid_argument("Item with the given UID does not exist in the shopping list");
+    }
+    return it->second;
+}
+
+vector<ShoppingItem*> ShoppingList::getAllItems() {
+    vector<ShoppingItem*> allItems;
+    allItems.reserve(items.size());
+    for (auto& pair : items) {
+        allItems.push_back(&pair.second);
+    }
+    return allItems;
+}
