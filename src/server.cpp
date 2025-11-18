@@ -6,22 +6,23 @@
 #include <sstream>
 #include <random>
 
-using namespace std;
+#include "model/shopping_list.hpp"
 
-struct ShoppingList {
-    vector<string> items;
-};
+using namespace std;
 
 unordered_map<string, ShoppingList> lists;
 
-string gen_id() {
-    static const char chars[] =
-        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+static const char chars[] =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+
+static const char numericChars[] = "0123456789";
+
+string gen_id(const char availableCharacters[], size_t length) {
     static thread_local std::mt19937_64 rng{std::random_device{}()};
-    std::uniform_int_distribution<int> dist(0, sizeof(chars)-2);
+    std::uniform_int_distribution<int> dist(0, length - 1);
 
     std::string id(8, 'x');
-    for (auto &c : id) c = chars[dist(rng)];
+    for (auto &c : id) c = availableCharacters[dist(rng)];
     return id;
 }
 
@@ -52,7 +53,7 @@ int main() {
             rep = "ERR empty_request";
         }
         else if (tokens[0] == "CREATE") {
-            std::string id = gen_id();
+            std::string id = gen_id(chars, 63);
             lists[id] = ShoppingList{};
             rep = "OK " + id;
         }
@@ -72,7 +73,7 @@ int main() {
                         rep = "ERR missing_item_text";
                     } else {
                         string item = req.substr(pos + 1);
-                        it->second.items.push_back(item);
+                        it->second.add(ShoppingItem(stoi(gen_id(numericChars, 10)), item, 1, 0));
                         rep = "OK";
                     }
                 }
@@ -89,8 +90,10 @@ int main() {
                 } else {
                     ostringstream oss;
                     oss << "OK\n";
-                    for (size_t i = 0; i < it->second.items.size(); ++i) {
-                        oss << i << " " << it->second.items[i] << "\n";
+                    size_t count = 1;
+                    for (ShoppingItem* i: it->second.getAllItems()) {
+                        oss << count++ << " " << i -> getName() << ": " <<
+                            i -> getCurrentQuantity() << "/" << i -> getDesiredQuantity() << "\n";
                     }
                     rep = oss.str();
                 }
