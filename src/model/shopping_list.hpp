@@ -3,7 +3,7 @@
 
 #include <map>
 #include <vector>
-#include <cstdint>
+#include <string>
 
 #include "shopping_item.hpp"
 
@@ -11,15 +11,15 @@ using namespace std;
 
 class ShoppingList {
     private:
-        uint32_t uid;
-        map<uint32_t, ShoppingItem> items;
+        string uid;
+        map<string, ShoppingItem> items;
     
     public:
-        ShoppingList();
+        ShoppingList(string uid);
         void add(const ShoppingItem& item);
         bool remove(const ShoppingItem& item);
         bool contains(const ShoppingItem& item) const;
-        ShoppingItem& getItem(uint32_t uid);
+        ShoppingItem& getItem(string uid);
         vector<ShoppingItem*> getAllItems();
 };
 

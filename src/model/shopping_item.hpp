@@ -8,16 +8,16 @@ using namespace std;
 
 class ShoppingItem {
     private:
-        uint32_t uid;
+        string uid;
         string name;
         uint32_t desiredQuantity;
         uint32_t currentQuantity;
         uint32_t lastModificationTs;
 
     public:
-        ShoppingItem(uint32_t uid, const string& name, uint32_t desiredQuantity,
+        ShoppingItem(string uid, const string& name, uint32_t desiredQuantity,
             uint32_t currentQuantity);
-        uint32_t getUid() const;
+        string getUid() const;
         string getName() const;
         uint32_t getDesiredQuantity() const;
         uint32_t getCurrentQuantity() const;

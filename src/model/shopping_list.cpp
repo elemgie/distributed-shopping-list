@@ -3,7 +3,7 @@
 
 using namespace std;
 
-ShoppingList::ShoppingList() : uid(0) {}
+ShoppingList::ShoppingList(string uid): uid(uid) {}
 
 void ShoppingList::add(const ShoppingItem& item) {
     if (this -> contains(item)) {
@@ -20,7 +20,7 @@ bool ShoppingList::contains(const ShoppingItem& item) const {
     return items.find(item.getUid()) != items.end();
 }
 
-ShoppingItem& ShoppingList::getItem(uint32_t uid) {
+ShoppingItem& ShoppingList::getItem(string uid) {
     auto it = items.find(uid);
     if (it == items.end()) {
         throw std::invalid_argument("Item with the given UID does not exist in the shopping list");

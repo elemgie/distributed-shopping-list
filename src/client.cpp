@@ -14,8 +14,6 @@ unordered_map<string, ShoppingList> lists;
 static const char chars[] =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
 
-static const char numericChars[] = "0123456789";
-
 string gen_id(const char availableCharacters[], size_t length) {
     static thread_local std::mt19937_64 rng{std::random_device{}()};
     std::uniform_int_distribution<int> dist(0, length - 1);
@@ -56,8 +54,8 @@ int main() {
             rep = "ERR empty_request";
         }
         else if (tokens[0] == "CREATE") {
-            std::string id = gen_id(chars, 63);
-            lists[id] = ShoppingList{};
+            string id = gen_id(chars, 32);
+            lists[id] = ShoppingList(id);
             rep = "OK " + id;
         }
         else if (tokens[0] == "ADD") {
@@ -76,7 +74,7 @@ int main() {
                         rep = "ERR missing_item_text";
                     } else {
                         string item = req.substr(pos + 1);
-                        it->second.add(ShoppingItem(stoi(gen_id(numericChars, 10)), item, 1, 0));
+                        it->second.add(ShoppingItem(gen_id(chars, 32), item, 1, 0));
                         rep = "OK";
                     }
                 }

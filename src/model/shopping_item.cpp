@@ -3,14 +3,14 @@
 
 using namespace std;
 
-ShoppingItem::ShoppingItem(uint32_t uid, const string& name, uint32_t desiredQuantity,
+ShoppingItem::ShoppingItem(string uid, const string& name, uint32_t desiredQuantity,
     uint32_t currentQuantity)
     : uid(uid), name(name), desiredQuantity(desiredQuantity),
       currentQuantity(currentQuantity) {
     lastModificationTs = static_cast<uint32_t>(time(nullptr));
 }
 
-uint32_t ShoppingItem::getUid() const {
+string ShoppingItem::getUid() const {
     return uid;
 }
 
