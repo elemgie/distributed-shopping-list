@@ -1,6 +1,7 @@
 #ifndef SHOPPING_ITEM_HPP
 #define SHOPPING_ITEM_HPP
 
+#include <nlohmann/json.hpp>
 #include <cstdint>
 #include <string>
 
@@ -26,6 +27,7 @@ class ShoppingItem {
         void setDesiredQuantity(uint32_t quantity);
         void setName(const string& name);
         void setLastModificationTs(uint32_t ts);
+        static nlohmann::json to_json(const ShoppingItem& it);
 };
 
 #endif

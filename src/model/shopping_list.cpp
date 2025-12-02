@@ -1,9 +1,11 @@
 #include "shopping_list.hpp"
 #include <stdexcept>
+#include <nlohmann/json.hpp>
 
+using json = nlohmann::json;
 using namespace std;
 
-ShoppingList::ShoppingList(string uid): uid(uid) {}
+ShoppingList::ShoppingList(string uid, string name): uid(uid), name(name) {}
 
 void ShoppingList::add(const ShoppingItem& item) {
     if (this -> contains(item)) {
@@ -35,4 +37,12 @@ vector<ShoppingItem*> ShoppingList::getAllItems() {
         allItems.push_back(&pair.second);
     }
     return allItems;
+}
+
+inline json to_json(ShoppingList& list) {
+    json items = json::array();
+    for (auto *it : list.getAllItems()) {
+        items.push_back(ShoppingItem::to_json(*it));
+    }
+    return json{{"items", items}, {"uid", list.uid}, {"name", list.name}};
 }

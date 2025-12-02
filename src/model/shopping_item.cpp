@@ -1,6 +1,7 @@
 #include "shopping_item.hpp"
 #include <ctime>
 
+using json = nlohmann::json;
 using namespace std;
 
 ShoppingItem::ShoppingItem(string uid, const string& name, uint32_t desiredQuantity,
@@ -44,4 +45,14 @@ void ShoppingItem::setName(const string& name) {
 
 void ShoppingItem::setLastModificationTs(uint32_t ts) {
     lastModificationTs = ts;
+}
+
+inline json to_json(const ShoppingItem& it) {
+    return json{
+        {"uid", it.getUid()},
+        {"name", it.getName()},
+        {"desiredQuantity", it.getDesiredQuantity()},
+        {"currentQuantity", it.getCurrentQuantity()},
+        {"lastModificationTs", it.getLastModificationTs()}
+    };
 }
