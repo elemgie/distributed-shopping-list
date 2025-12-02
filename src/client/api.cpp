@@ -3,6 +3,7 @@
 #include <random>
 #include <unordered_map>
 #include <ctime>
+#include <stdexcept>
 
 using namespace std;
 
@@ -24,9 +25,9 @@ string createUID(size_t length) {
     return id;
 }
 
-ShoppingList API::createShoppingList() {
+ShoppingList API::createShoppingList(string name) {
     string uid = createUID(32);
-    ShoppingList lst(uid);
+    ShoppingList lst(uid, name);
     shoppingLists[uid] = lst;
     return lst;
 }
@@ -51,6 +52,14 @@ ShoppingList API::removeItem(const string& listUID, const string& itemUID) {
     ShoppingItem& item = shoppingLists[listUID].getItem(itemUID);
     shoppingLists[listUID].remove(item);
     return shoppingLists[listUID];
+}
+
+ShoppingList API::getShoppingList(const string& listUID) {
+    if (shoppingLists.find(listUID) != shoppingLists.end()) {
+        return shoppingLists[listUID];
+    } else {
+        throw runtime_error("Shopping list not found");
+    }
 }
 
 void API::deleteShoppingList(const string& listUID) {
