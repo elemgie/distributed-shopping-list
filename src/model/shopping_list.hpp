@@ -4,6 +4,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <msgpack.hpp>
 
 #include "shopping_item.hpp"
 
@@ -16,6 +17,8 @@ class ShoppingList {
         map<string, ShoppingItem> items;
     
     public:
+        ShoppingList() = default;
+        string getUid() const;
         ShoppingList(string uid, string name);
         void add(const ShoppingItem& item);
         bool remove(const ShoppingItem& item);
@@ -23,6 +26,7 @@ class ShoppingList {
         ShoppingItem& getItem(string uid);
         vector<ShoppingItem*> getAllItems();
         friend inline nlohmann::json to_json(ShoppingList& list);
+        MSGPACK_DEFINE(uid, name, items);
 };
 
 #endif
