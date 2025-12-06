@@ -7,6 +7,10 @@ using namespace std;
 
 ShoppingList::ShoppingList(string uid, string name): uid(uid), name(name) {}
 
+string ShoppingList::getUid() const {
+    return uid;
+}
+
 void ShoppingList::add(const ShoppingItem& item) {
     if (this -> contains(item)) {
         throw invalid_argument("Item with the same UID already exists in the shopping list");

@@ -1,58 +1,68 @@
 #include "api.hpp"
-
 #include <random>
-#include <unordered_map>
 #include <ctime>
 
 using namespace std;
 
+API::API(SqliteDb *db) : db(db) {}
 
-// TODO: change to persistent storage
-unordered_map<string, ShoppingList> shoppingLists;
-
-static const char chars[] =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-string createUID(size_t length) {
-    static thread_local std::mt19937_64 rng{std::random_device{}()};
-    std::uniform_int_distribution<int> dist(0, length - 1);
-
+string API::createUID(size_t length) {
+    static thread_local mt19937_64 rng{random_device{}()};
+    uniform_int_distribution<int> dist(0, 61);
+    static const char chars[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     string id(length, 'x');
-    do {
-        for (auto &c : id) c = chars[dist(rng)];
-    } while (shoppingLists.find(id) != shoppingLists.end());
+    do
+    {
+        for (auto &c : id)
+            c = chars[dist(rng)];
+    } while (db->read(id).has_value());
     return id;
 }
 
-ShoppingList API::createShoppingList() {
-    string uid = createUID(32);
-    ShoppingList lst(uid);
-    shoppingLists[uid] = lst;
-    return lst;
+ShoppingList API::createShoppingList(const string &name) {
+    string uid = createUID();
+    ShoppingList list(uid, name);
+    db->write(list);
+    return list;
 }
 
-ShoppingList API::addItem(const string& listUID, string itemName, int desiredQuantity, int currentQuantity) {
-    ShoppingItem item(createUID(32), itemName, desiredQuantity, currentQuantity);
+ShoppingList API::addItem(const string &listUID, string itemName, int desiredQuantity, int currentQuantity) {
+    auto optList = db->read(listUID);
+    if (!optList.has_value())
+        throw runtime_error("List not found");
+    ShoppingList list = move(optList.value());
+    ShoppingItem item(createUID(), itemName, desiredQuantity, currentQuantity);
     item.setLastModificationTs(static_cast<uint32_t>(time(nullptr)));
-    shoppingLists[listUID].add(item);
-    return shoppingLists[listUID];
+    list.add(item);
+    db->write(list);
+    return list;
 }
 
-ShoppingList API::updateItem(const string& listUID, const string& itemUID, string itemName, int desiredQuantity, int currentQuantity) {
-    ShoppingItem& item = shoppingLists[listUID].getItem(itemUID);
+ShoppingList API::updateItem(const string &listUID, const string &itemUID, string itemName, int desiredQuantity, int currentQuantity) {
+    auto optList = db->read(listUID);
+    if (!optList.has_value())
+        throw runtime_error("List not found");
+    ShoppingList list = move(optList.value());
+    ShoppingItem &item = list.getItem(itemUID);
     item.setName(itemName);
     item.setDesiredQuantity(desiredQuantity);
     item.setCurrentQuantity(currentQuantity);
     item.setLastModificationTs(static_cast<uint32_t>(time(nullptr)));
-    return shoppingLists[listUID];
+    db->write(list);
+    return list;
 }
 
-ShoppingList API::removeItem(const string& listUID, const string& itemUID) {
-    ShoppingItem& item = shoppingLists[listUID].getItem(itemUID);
-    shoppingLists[listUID].remove(item);
-    return shoppingLists[listUID];
+ShoppingList API::removeItem(const string &listUID, const string &itemUID) {
+    auto optList = db->read(listUID);
+    if (!optList.has_value())
+        throw runtime_error("List not found");
+    ShoppingList list = move(optList.value());
+    ShoppingItem &item = list.getItem(itemUID);
+    list.remove(item);
+    db->write(list);
+    return list;
 }
 
-void API::deleteShoppingList(const string& listUID) {
-    shoppingLists.erase(listUID);
+void API::deleteShoppingList(const string &listUID){
+    db->delete_list(listUID);
 }

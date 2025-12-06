@@ -4,6 +4,7 @@
 #include <nlohmann/json.hpp>
 #include <cstdint>
 #include <string>
+#include <msgpack.hpp>
 
 using namespace std;
 
@@ -16,6 +17,7 @@ class ShoppingItem {
         uint32_t lastModificationTs;
 
     public:
+        ShoppingItem() = default;
         ShoppingItem(string uid, const string& name, uint32_t desiredQuantity,
             uint32_t currentQuantity);
         string getUid() const;
@@ -27,6 +29,8 @@ class ShoppingItem {
         void setDesiredQuantity(uint32_t quantity);
         void setName(const string& name);
         void setLastModificationTs(uint32_t ts);
+
+        MSGPACK_DEFINE(uid, name, desiredQuantity, currentQuantity, lastModificationTs);
         static nlohmann::json to_json(const ShoppingItem& it);
 };
 
