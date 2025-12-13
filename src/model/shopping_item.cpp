@@ -5,11 +5,8 @@ using json = nlohmann::json;
 using namespace std;
 
 ShoppingItem::ShoppingItem(string uid, const string& name, uint32_t desiredQuantity,
-    uint32_t currentQuantity)
-    : uid(uid), name(name), desiredQuantity(desiredQuantity),
-      currentQuantity(currentQuantity) {
-    lastModificationTs = static_cast<uint32_t>(time(nullptr));
-}
+    uint32_t currentQuantity) : uid(uid), name(name), desiredQuantity(desiredQuantity),
+      currentQuantity(currentQuantity) {}
 
 string ShoppingItem::getUid() const {
     return uid;
@@ -27,10 +24,6 @@ uint32_t ShoppingItem::getCurrentQuantity() const {
     return currentQuantity;
 }
 
-uint32_t ShoppingItem::getLastModificationTs() const {
-    return lastModificationTs;
-}
-
 void ShoppingItem::setCurrentQuantity(uint32_t quantity) {
     currentQuantity = quantity;
 }
@@ -43,16 +36,9 @@ void ShoppingItem::setName(const string& name) {
     this -> name = name;
 }
 
-void ShoppingItem::setLastModificationTs(uint32_t ts) {
-    lastModificationTs = ts;
-}
-
-inline json to_json(const ShoppingItem& it) {
-    return json{
-        {"uid", it.getUid()},
-        {"name", it.getName()},
-        {"desiredQuantity", it.getDesiredQuantity()},
-        {"currentQuantity", it.getCurrentQuantity()},
-        {"lastModificationTs", it.getLastModificationTs()}
-    };
+json ShoppingItem::to_json(const ShoppingItem& it) {
+    return json{{"uid", it.getUid()},
+                {"name", it.getName()},
+                {"desiredQuantity", it.getDesiredQuantity()},
+                {"currentQuantity", it.getCurrentQuantity()}};
 }

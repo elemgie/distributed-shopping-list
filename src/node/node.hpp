@@ -1,66 +1,68 @@
-#pragma once
-#include <zmq.hpp>
+#ifndef NODE_HPP
+#define NODE_HPP
+
 #include <string>
+#include <vector>
+#include <unordered_map>
 #include <thread>
 #include <atomic>
-#include <iostream>
-#include "shopping_list.hpp"
+#include <zmq.hpp>
 #include "../persistence/sqlite_db.hpp"
+#include "../message/message.hpp"
+#include "../model/shopping_list.hpp"
+#include "../model/shopping_item.hpp"
 
-class Node{
-    public:
-        Node(const std::string &nodeID,
-            int shardID,
-            int numShards,
-            int numReplicas,
-        );
-
-        ~Node();
-
-        void start();
-        void stop();
-
-        /// current understanding of communication model:
-        // client/proxy request is directed to a single shard (ex req/rep?)
-        // replicas apply (via CRDT) and broadcast to each other all operations they receive from client (or a proxy)
-        // communication between replicas is via channel/topic for their shared shard
-        // operations received from other replicas are not further broadcasted, and are applied using crdt
-
-
-        // helpers for local simulations
-        void broadcastOperation(const std::string &op, const std::string &listUID);
-        ShoppingList createList();
-        ShoppingList addItem(const std::string &listUID,
-                            const std::string &itemName,
-                            int desiredQuantity,
-                            int currentQuantity);
-        ShoppingList updateItem(const std::string &listUID,
-                                const std::string &itemUID,
-                                const std::string &itemName,
-                                int desiredQuantity,
-                                int currentQuantity);
-        ShoppingList removeItem(const std::string &listUID,
-                                const std::string &itemUID);
-        ShoppingList getList(const std::string &listUID);
-
-    private:
-
-        void mainLoop();
-        void processIncoming(const std::string &msg, int shardID);
-        void broadcast(const std::string &msg, int shardID);
-        int getShardID(const std::string &listUID);
-
-        std::string nodeID_;
-        int shardID_;
-        int numShards_;
-        int numReplicas_;
-
-        SqliteDb db;
-
-        zmq::context_t ctx;
-        zmq::socket_t proxy;
-        zmq::socket_t shard;
-
-        std::atomic<bool> running;
-        std::thread mainThread;
+struct NodeConfig {
+    std::string nodeId;
+    std::string host;           // e.g. "127.0.0.1"
+    int clientPort;             // REP port for clients
+    int pubPort;                // this node's PUB port (its own endpoint)
+    int gossipPushPort;         // this node PUSHes to peer pull ports
+    int gossipPullPort;         // this node listens on this PULL port
+    std::vector<std::string> peerPubEndpoints; // other replicas' pub endpoints (tcp://host:port)
+    std::vector<std::string> peerGossipPullEndpoints; // "tcp://host:port" entries
+    std::string dbPath;
+    int shardId;                // shard this node is responsible for
+    int numShards;
+    int replicationFactor;
+    int gossipIntervalMs;
 };
+
+class Node {
+public:
+    explicit Node(const NodeConfig& cfg);
+    ~Node();
+
+    void start();
+    void stop();
+    void run_loop();            // internal loop (public for simulation convenience)
+    void addPeerPubEndpoint(const std::string& ep);
+
+private:
+    void handle_client_frame();
+    void handle_sub_frames();
+    void handle_gossip_frame();
+
+    void apply_message(const message::Message& m);
+    void broadcast_message(const message::Message& m);
+    void perform_gossip();
+
+    int shard_for_list(const std::string& listId) const;
+    uint64_t next_gossip_ts() const;
+
+private:
+    NodeConfig cfg;
+    zmq::context_t ctx;
+    zmq::socket_t repSock;
+    zmq::socket_t pubSock;
+    zmq::socket_t subSock;
+    zmq::socket_t gossipPushSock;
+    zmq::socket_t gossipPullSock;
+
+
+    SqliteDb db;
+    std::thread loopThread;
+    std::atomic<bool> running;
+};
+
+#endif // NODE_HPP
