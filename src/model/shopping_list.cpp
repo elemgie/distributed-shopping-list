@@ -43,7 +43,7 @@ vector<ShoppingItem*> ShoppingList::getAllItems() {
     return allItems;
 }
 
-inline json to_json(ShoppingList& list) {
+json to_json(ShoppingList& list) {
     json items = json::array();
     for (auto *it : list.getAllItems()) {
         items.push_back(ShoppingItem::to_json(*it));

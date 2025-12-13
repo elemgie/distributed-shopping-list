@@ -14,7 +14,6 @@ class ShoppingItem {
         string name;
         uint32_t desiredQuantity;
         uint32_t currentQuantity;
-        uint32_t lastModificationTs;
 
     public:
         ShoppingItem() = default;
@@ -24,13 +23,11 @@ class ShoppingItem {
         string getName() const;
         uint32_t getDesiredQuantity() const;
         uint32_t getCurrentQuantity() const;
-        uint32_t getLastModificationTs() const;
         void setCurrentQuantity(uint32_t quantity);
         void setDesiredQuantity(uint32_t quantity);
         void setName(const string& name);
-        void setLastModificationTs(uint32_t ts);
 
-        MSGPACK_DEFINE(uid, name, desiredQuantity, currentQuantity, lastModificationTs);
+        MSGPACK_DEFINE(uid, name, desiredQuantity, currentQuantity);
         static nlohmann::json to_json(const ShoppingItem& it);
 };
 

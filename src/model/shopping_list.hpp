@@ -25,7 +25,7 @@ class ShoppingList {
         bool contains(const ShoppingItem& item) const;
         ShoppingItem& getItem(string uid);
         vector<ShoppingItem*> getAllItems();
-        friend inline nlohmann::json to_json(ShoppingList& list);
+        friend nlohmann::json to_json(ShoppingList& list);
         MSGPACK_DEFINE(uid, name, items);
 };
 
