@@ -11,19 +11,26 @@ using namespace Pistache::Rest;
 volatile std::sig_atomic_t stop_flag = 0;
 
 void sigHandler(int signum) {
-    std::cout << "Received interruption signal: " << signum << std::endl;
     stop_flag = 1;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "No communication port provided" << std::endl;
+        return 1;
+    }
     signal(SIGINT, sigHandler);
     signal(SIGTERM, sigHandler);
 
-    Address addr(Ipv4::any(), Port(9080));
+    std::string host = "127.0.0.1";
+    int port = std::stoi(argv[1]);
+    Address addr(host, Port(port));
     auto opts = Http::Endpoint::options().threads(1);
+
     SqliteDb db;
-    db.init_db("shopping.db");
-    API api(&db);
+    db.init_db("db/shopping" + std::to_string(port) + ".db");
+
+    API api(&db, host + ":" + std::to_string(port), 150);
 
     Router router;
 
@@ -32,13 +39,23 @@ int main() {
     server.setHandler(Http::make_handler<RequestHandler>(api, router));
     server.serveThreaded();
 
+    thread gossipThread = thread([&api]() {
+        while (!stop_flag) {
+            std::this_thread::sleep_for(std::chrono::seconds(3));
+            api.gossipState();
+        }
+    });
+
     std::cout << "Server is running at " << addr.host() << ":" << addr.port() << std::endl;\
 
     while (!stop_flag) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    std::cout << "Shutting down server..." << std::endl;
+    std::cout << "\nShutting down server..." << std::endl;
+    if (gossipThread.joinable()) {
+        gossipThread.join();
+    }
     server.shutdown();
     std::cout << "Server stopped." << std::endl;
     return 0;

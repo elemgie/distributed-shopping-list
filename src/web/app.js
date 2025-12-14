@@ -14,7 +14,16 @@
 
   let currentListId = '';
 
-  const serverBase = 'http://localhost:9080';
+  const serverBaseInput = document.getElementById('server-base');
+
+  let serverBase = (localStorage.getItem('serverBase')) || 'http://localhost:9080';
+  if (serverBaseInput) {
+    serverBaseInput.value = serverBase;
+    serverBaseInput.addEventListener('change', () => {
+      serverBase = (serverBaseInput.value || '').trim() || 'http://localhost:9080';
+      localStorage.setItem('serverBase', serverBase);
+    });
+  }
 
   async function apiCreateList(name) {
     const res = await fetch(`${serverBase}/shopping_list`, {

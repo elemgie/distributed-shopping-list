@@ -19,7 +19,7 @@
 class API
 {
 public:
-    API(SqliteDb *db);
+    API(SqliteDb *db, std::string origin, int cloudTimeoutMs);
     ~API();
     ShoppingList getShoppingList(const std::string &listUID);
     ShoppingList createShoppingList(const std::string &name);
@@ -27,23 +27,25 @@ public:
     ShoppingList updateItem(const std::string &listUID, const std::string &itemUID, std::string itemName, int desiredQuantity, int currentQuantity);
     ShoppingList removeItem(const std::string &listUID, const std::string &itemUID);
     void deleteShoppingList(const std::string &listUID);
+    void gossipState();
 
 private:
     SqliteDb *db;
+    std::string origin;
+    int cloudTimeoutMs;
     zmq::context_t ctx;
     zmq::socket_t clientSocket;
     std::string currentEndpoint;
-    std::mutex sockMutex;
+    std::mutex socketMutex, dbMutex; // dbMutex is used to protect db access between gossip read and request writes
     std::string createUID(size_t length = 32);
     unordered_map<int, std::vector<std::string>> shardEndpoints;
     std::mt19937 randomEngine;
-    int cloudTimeoutMs = 150;
 
     string getShardEndpoint(const string& listUID);
     string getShardEndpoint(const ShoppingList& list);
     void setNodeEndpoint(const std::string &nodeEndpoint);
     void resetSocket();
-    message::Message sendCloudMessage(string receiverAddress, const message::Message& m);
+    message::Message sendCloudMessage(std::string receiverAddress, const message::Message& m);
 };
 
 #endif

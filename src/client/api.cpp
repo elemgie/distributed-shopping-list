@@ -4,8 +4,9 @@
 using namespace std;
 using namespace message;
 
-API::API(SqliteDb* db)
-: db(db), ctx(1), clientSocket(ctx, zmq::socket_type::req)
+API::API(SqliteDb* db, string origin, int cloudTimeoutMs):
+    db(db), ctx(1), clientSocket(ctx, zmq::socket_type::req),
+    origin(origin), cloudTimeoutMs(cloudTimeoutMs)
 {
     clientSocket.set(zmq::sockopt::sndtimeo, cloudTimeoutMs);
     clientSocket.set(zmq::sockopt::rcvtimeo, cloudTimeoutMs);
@@ -21,6 +22,7 @@ API::~API()
     int linger = 0;
     clientSocket.set(zmq::sockopt::linger, 0);
     clientSocket.close();
+    ctx.close();
 }
 
 void API::setNodeEndpoint(const string &nodeEndpoint)
@@ -66,14 +68,10 @@ void API::resetSocket() {
 }
 
 Message API::sendCloudMessage(string receiverAddress, const Message& m) {
-    lock_guard<mutex> g(sockMutex);
+    lock_guard<mutex> g(socketMutex);
     setNodeEndpoint(receiverAddress);
 
-    clientSocket.set(zmq::sockopt::sndtimeo, cloudTimeoutMs);
-    clientSocket.set(zmq::sockopt::rcvtimeo, cloudTimeoutMs);
-
     try {
-        // cout << "Sending message to " << receiverAddress << endl;
         clientSocket.send(m.to_zmq(), zmq::send_flags::none);
 
         zmq::message_t reply;
@@ -81,15 +79,14 @@ Message API::sendCloudMessage(string receiverAddress, const Message& m) {
 
         if (!result) { // socket timeout
             resetSocket();
-            throw runtime_error("CLOUD_TIMEOUT");
+            string errMsg = "CLOUD TIMEOUT when sending <" + to_string(static_cast<int>(m.op)) + "> (op type) to " + receiverAddress;
+            throw runtime_error(errMsg);
         }
-        // cout << "Got meaningful reply from " << receiverAddress << endl;
-        // cout << reply << endl;
         return Message::from_zmq(reply);
     } catch (const zmq::error_t& e) {
         cerr << "ZMQ error: " << e.what() <<  endl;
         resetSocket();
-        throw runtime_error(string("CLOUD_ZMQ_ERROR: ") + e.what());
+        throw e;
     }
     catch (const std::exception& e) {
         cerr << "General error: " << e.what() << endl;
@@ -100,16 +97,46 @@ Message API::sendCloudMessage(string receiverAddress, const Message& m) {
 ShoppingList API::createShoppingList(const string &name) {
     string uid = createUID();
     ShoppingList lst(uid, name);
-    db->write(lst);
+    {
+        lock_guard<mutex> g(dbMutex);
+        db->write(lst);
+    }
 
-    Message m = Message::ensure_list("", Util::now_ms(), lst);
+    Message m = Message::ensure_list(origin, Util::now_ms(), lst);
     try {
         Message reply = sendCloudMessage(getShardEndpoint(lst), m);
+    } catch (const exception& e) {}
+
+    return lst;
+}
+
+ShoppingList API::getShoppingList(const string& listUID) {
+    optional<ShoppingList> optList = db->read(listUID);
+
+    Message m = Message::get_list(origin, Util::now_ms(), listUID);
+    optional<ShoppingList> maybeCloudList;
+    try {
+        Message reply = sendCloudMessage(getShardEndpoint(listUID), m);
         if (reply.op == OpType::LIST_RESPONSE) {
-            lst = reply.lists[0];
-            // TODO: local crdt merge here
+            maybeCloudList = reply.lists[0];
         }
     } catch (const exception& e) {}
+
+
+    ShoppingList lst;
+    if (!maybeCloudList.has_value() && !optList.has_value()) {
+        throw runtime_error("List not found");
+    } else if (maybeCloudList.has_value() && optList.has_value()) {
+        lst = optList.value();
+        lst.merge(maybeCloudList.value());
+    } else {
+        lst = maybeCloudList.has_value() ? maybeCloudList.value() : optList.value();
+    }
+
+    {
+        lock_guard<mutex> g(dbMutex);
+        db->write(lst);
+    }
 
     return lst;
 }
@@ -118,19 +145,23 @@ ShoppingList API::addItem(const string &listUID, string itemName, int desiredQua
     auto optList = db->read(listUID);
     if (!optList.has_value())
         throw runtime_error("List not found");
-    ShoppingList lst = move(optList.value());
-    ShoppingItem item(createUID(), itemName, desiredQuantity, currentQuantity);
-    lst.add(item);
-    db->write(lst);
 
-    Message m = Message::ensure_list("", Util::now_ms(), lst);
+    ShoppingList lst = move(optList.value());
+    ShoppingItem item(origin, createUID(), itemName, desiredQuantity, currentQuantity);
+    lst.add(item);
+
+    Message m = Message::ensure_list(origin, Util::now_ms(), lst);
     try {
         Message reply = sendCloudMessage(getShardEndpoint(lst), m);
         if (reply.op == OpType::LIST_RESPONSE) {
-            lst = reply.lists[0];
-            // TODO: local crdt merge here
+            lst.merge(reply.lists[0]);
         }
     } catch (const exception& e) {}
+
+    {
+        lock_guard<mutex> g(dbMutex);
+        db->write(lst);
+    }
 
     return lst;
 }
@@ -143,18 +174,23 @@ ShoppingList API::updateItem(const string &listUID, const string &itemUID, strin
 
     ShoppingItem &item = lst.getItem(itemUID);
     item.setName(itemName);
-    item.setDesiredQuantity(desiredQuantity);
-    item.setCurrentQuantity(currentQuantity);
-    db->write(lst);
+    item.setDesiredQuantity(origin, desiredQuantity);
+    item.setCurrentQuantity(origin, currentQuantity);
+    lst.update(item);
 
-    Message m = Message::ensure_list("", Util::now_ms(), lst);
+    Message m = Message::ensure_list(origin, Util::now_ms(), lst);
     try {
         Message reply = sendCloudMessage(getShardEndpoint(lst), m);
         if (reply.op == OpType::LIST_RESPONSE) {
-            lst = reply.lists[0];
-            // TODO: local crdt merge here
+            lst.merge(reply.lists[0]);
         }
     } catch (const exception& e) {}
+
+    {
+        lock_guard<mutex> g(dbMutex);
+        db->write(lst);
+    }
+
     return lst;
 }
 
@@ -166,49 +202,57 @@ ShoppingList API::removeItem(const string &listUID, const string &itemUID) {
 
     ShoppingItem &item = lst.getItem(itemUID);
     lst.remove(item);
-    db->write(lst);
 
-    Message m = Message::ensure_list("", Util::now_ms(), lst);
+    Message m = Message::ensure_list(origin, Util::now_ms(), lst);
     try {
         Message reply = sendCloudMessage(getShardEndpoint(lst), m);
         if (reply.op == OpType::LIST_RESPONSE) {
-            lst = reply.lists[0];
-            // TODO: local crdt merge here
+            lst.merge(reply.lists[0]);
         }
     } catch (const exception& e) {}
 
-    return lst;
-}
-
-ShoppingList API::getShoppingList(const string& listUID) {
-    optional<ShoppingList> optList = db->read(listUID);
-    if (!optList.has_value())
-        throw runtime_error("List not found");
-
-    ShoppingList lst = move(optList.value());
-    Message m = Message::get_list("", Util::now_ms(), listUID);
-    try {
-        Message reply = sendCloudMessage(getShardEndpoint(lst), m);
-        if (reply.op == OpType::LIST_RESPONSE) {
-            lst = reply.lists[0];
-            // TODO: local crdt merge here
-        }
-    } catch (const exception& e) {}
-
+    {
+        lock_guard<mutex> g(dbMutex);
+        db->write(lst);
+    }
     return lst;
 }
 
 void API::deleteShoppingList(const string &listUID) {
-    db->delete_list(listUID);
+    {
+        lock_guard<mutex> g(dbMutex);
+        db->delete_list(listUID);
+    }
 
-    Message m = Message::delete_list("", Util::now_ms(), listUID);
+    Message m = Message::delete_list(origin, Util::now_ms(), listUID);
     try {
         Message reply = sendCloudMessage(getShardEndpoint(listUID), m);
         if (reply.op == OpType::LIST_RESPONSE) {
-            cerr << "WEIRD" << endl;
-        }
-        else if (reply.op == OpType::NO_LIST_RESPONSE) {
-            cout << "Tudo bem" << endl;
+            cerr << "List should have been deleted. Instead received LIST_RESPONSE" << endl;
         }
     } catch (const exception& e) {}
+}
+
+void API::gossipState() {
+
+    vector<ShoppingList> allLists;
+    {
+        lock_guard<mutex> g(dbMutex);
+        allLists = db->read_all();
+    }
+    if (allLists.empty()) return;
+
+    unordered_map <int, vector<ShoppingList>> shardLists;
+    for (const auto& lst : allLists) {
+        int shard = Util::getHash(lst.getUid()) % shardEndpoints.size();
+        shardLists[shard].push_back(lst);
+    }
+
+    for (const auto& [shard, lists]: shardLists) {
+        string shardEndpoint = getShardEndpoint(lists[0]);
+        Message m = Message::gossip_lists(origin, Util::now_ms(), lists);
+        try {
+            Message reply = sendCloudMessage(shardEndpoint, m);
+        } catch (const exception& e) {}
+    }
 }

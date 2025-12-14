@@ -123,6 +123,7 @@ void Node::handle_client_frame() {
         optional<ShoppingList> opt;
         string listUid = m.lists[0].getUid();
         opt = db.read(listUid);
+
         Message resp = opt.has_value() ?
             Message::list_response(true, cfg.nodeId, Util::now_ms(), *opt) :
             Message::list_response(false, cfg.nodeId, Util::now_ms(), ShoppingList(listUid, ""));
@@ -135,10 +136,11 @@ void Node::handle_client_frame() {
     m.ts = Util::now_ms();
 
     apply_message(m);
-    broadcast_message(m);
+    if (m.op == OpType::ENSURE_LIST || m.op == OpType::DELETE_LIST) // do not broadcast client gossips
+        broadcast_message(m);
 
     Message resp = Message::list_response(
-        true,
+        m.op == OpType::DELETE_LIST ? false : true,
         cfg.nodeId,
         Util::now_ms(),
         m.lists[0]
@@ -179,8 +181,10 @@ void Node::handle_gossip_frame() {
 void Node::apply_message(const message::Message& m) {
     switch (m.op) {
         case OpType::ENSURE_LIST: {
-            ShoppingList list = m.lists[0];
-            db.write(m.lists[0]);
+            ShoppingList incomingList = m.lists[0];
+            ShoppingList existingList = db.read(incomingList.getUid()).value_or(ShoppingList(incomingList.getUid(), ""));
+            existingList.merge(incomingList);
+            db.write(existingList);
             break;
         }
         case OpType::DELETE_LIST: {
@@ -188,7 +192,11 @@ void Node::apply_message(const message::Message& m) {
             break;
         }
         case OpType::GOSSIP_LISTS: {
-            for (auto& l : m.lists)  db.write(l);
+            for (auto& incomingList : m.lists) {
+                ShoppingList existingList = db.read(incomingList.getUid()).value_or(ShoppingList(incomingList.getUid(), ""));
+                existingList.merge(incomingList);
+                db.write(existingList);
+            }
             break;
         }
         default:
