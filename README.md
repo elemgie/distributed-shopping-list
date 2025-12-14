@@ -14,22 +14,27 @@ This is the local-first application for creating simple shopping lists. It consi
 
 **TO BE ELABORATED ON**
 
+## Requirements
+
+To properly compile and run this project you will need libraries like `pistache`, `cppzmq`, `sqlite3` and `msgpack-c`.
+
 ## Running application
 
 ### Local client
 
-To compile local client run in repository's main catalogue ```g++ -g -O0 -fsanitize=address -fno-omit-frame-pointer --std=c++20   src/client/client.cpp src/client/api.cpp src/client/request_handler.cpp   src/model/shopping_item.cpp src/model/shopping_list.cpp   src/persistence/sqlite_db.cpp src/util.cpp -Isrc -Imsgpack-c/include -lpistache -lzmq -lsqlite3 -pthread -o client.out```
+To compile local client run in repository's main catalogue ```make client```
 
-Then run `client.out` and open `web/index.html` in your browser.
-
-You may need to install some required libraries like `pistache`, `cppzmq`, `sqlite3` and `msgpack-c`.
+Then run `client.out [port]` specifying the listening port for the browser UI (for example 9080) and open `web/index.html` in your browser.
 
 Sanitization options for the compiler are required because there is some (yet) undiscovered bug with Pistache's use in this code that leads to stack smashing. Oddly, with these options, the bug doesn't crash the program.
 
 ### Cloud server
 
-To compile src/node/cluster.cpp (a simple cluster with two shards and a replication factor of three) run (in main catalogue):
-
-```g++ -g -O0 -fsanitize=address -fno-omit-frame-pointer --std=c++20 src/model/shopping_item.cpp src/model/shopping_list.cpp   src/persistence/sqlite_db.cpp src/node/node.cpp src/util.cpp src/message/message.cpp src/node/cluster.cpp -Isrc -Imsgpack-c/include -lzmq -lsqlite3 -pthread -o cluster.out```
+To compile src/node/cluster.cpp (a simple cluster with two shards and a replication factor of three) run (in main catalogue): ```make cluster```
 
 Then run `cluster.out`
+
+### Cleaning
+
+To remove effects of previous compilations run ```make clean```.
+If you also want to erase state of the app use ```make clean-all```.

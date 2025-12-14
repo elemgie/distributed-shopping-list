@@ -42,9 +42,14 @@ class RequestHandler: public Http::Handler {
 
         void getList(const Rest::Request& request, Http::ResponseWriter response) {
             auto id = request.param(":id").as<std::string>();
-            ShoppingList list = api.getShoppingList(id);
-            addCors(response);
-            response.send(Http::Code::Ok, to_json(list).dump(), MIME(Application, Json));
+            try {
+                ShoppingList list = api.getShoppingList(id);
+                addCors(response);
+                response.send(Http::Code::Ok, to_json(list).dump(), MIME(Application, Json));
+            } catch (const std::exception& e) {
+                addCors(response);
+                response.send(Http::Code::Not_Found, "List not found");
+            }
         }
 
         void createList(const Rest::Request& request, Http::ResponseWriter response) {

@@ -40,11 +40,12 @@ int main() {
         cfgs[i].gossipPullPort  = 7000 + i;
 
         cfgs[i].numShards = numShards;
-        cfgs[i].shardId   = i / replicasPerShard;
-        cfgs[i].replicationFactor = replicasPerShard;
+        cfgs[i].shardId   = (i < replicasPerShard) ? 0 : 1;
 
         cfgs[i].gossipIntervalMs = 300; // fast for test
-        cfgs[i].dbPath = to_string(i) + "test.db";
+        cfgs[i].dbPath = "db/" + to_string(i) + "test.db";
+        cfgs[i].shardId   = i / replicasPerShard;
+        cfgs[i].replicationFactor = replicasPerShard;
     }
 
     // ----------------------------

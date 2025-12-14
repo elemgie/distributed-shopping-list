@@ -15,38 +15,58 @@ void ShoppingList::add(const ShoppingItem& item) {
     if (this -> contains(item)) {
         throw invalid_argument("Item with the same UID already exists in the shopping list");
     }
-    items.emplace(item.getUid(), item);
+    items.add(item);
 }
 
-bool ShoppingList::remove(const ShoppingItem& item) {
-    return items.erase(item.getUid()) > 0;
+void ShoppingList::update(const ShoppingItem& item) {
+    if (!this -> contains(item)) {
+        throw invalid_argument("Item not found in the shopping list");
+    }
+    items.add(item);
+}
+
+void ShoppingList::remove(const ShoppingItem& item) {
+    items.remove(item);
 }
 
 bool ShoppingList::contains(const ShoppingItem& item) const {
-    return items.find(item.getUid()) != items.end();
+    return items.contains(item);
 }
 
-ShoppingItem& ShoppingList::getItem(string uid) {
-    auto it = items.find(uid);
-    if (it == items.end()) {
-        throw std::invalid_argument("Item with the given UID does not exist in the shopping list");
+ShoppingItem& ShoppingList::getItem(const string& uid) {
+    for (auto* it : items.values()) {
+        if (it->getUid() == uid) { // TODO: rethink and rework so we don't have linear search!
+            return *it;
+        }
     }
-    return it->second;
+    throw invalid_argument("Item not found in the shopping list");
+}
+
+const ShoppingItem& ShoppingList::getItem(const string& uid) const {
+    for (auto* it : items.values()) {
+        if (it->getUid() == uid) {
+            return *it;
+        }
+    }
+    throw invalid_argument("Item not found in the shopping list");
 }
 
 vector<ShoppingItem*> ShoppingList::getAllItems() {
-    vector<ShoppingItem*> allItems;
-    allItems.reserve(items.size());
-    for (auto& pair : items) {
-        allItems.push_back(&pair.second);
-    }
-    return allItems;
+    return items.values();
 }
 
-json to_json(ShoppingList& list) {
+vector<const ShoppingItem*> ShoppingList::getAllItems() const {
+    return items.values();
+}
+
+json to_json(const ShoppingList& list) {
     json items = json::array();
-    for (auto *it : list.getAllItems()) {
+    for (auto* it : list.getAllItems()) {
         items.push_back(ShoppingItem::to_json(*it));
     }
     return json{{"items", items}, {"uid", list.uid}, {"name", list.name}};
+}
+
+void ShoppingList::merge(const ShoppingList &other) {
+    this->items.merge(other.items);
 }
