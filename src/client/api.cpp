@@ -40,10 +40,21 @@ string API::getShardEndpoint(const ShoppingList& lst) {
 }
 
 string API::getShardEndpoint(const string& listUID) {
+    shared_lock g(shardMutex);
     int shard = Util::getHash(listUID) % shardEndpoints.size();
     const vector<string>& endpoints = shardEndpoints[shard];
     uniform_int_distribution<int> dist(0, endpoints.size() - 1);
     return endpoints[dist(randomEngine)];
+}
+
+string API::getShardEndpoint() {
+    shared_lock g(shardMutex);
+    vector<string> allEndpoints;
+    for (const auto& [shardId, endpoints]: shardEndpoints) {
+        allEndpoints.insert(allEndpoints.end(), endpoints.begin(), endpoints.end());
+    }
+    uniform_int_distribution<int> dist(0, allEndpoints.size() - 1);
+    return allEndpoints[dist(randomEngine)];
 }
 
 string API::createUID(size_t length) {
@@ -86,11 +97,11 @@ Message API::sendCloudMessage(string receiverAddress, const Message& m) {
     } catch (const zmq::error_t& e) {
         cerr << "ZMQ error: " << e.what() <<  endl;
         resetSocket();
-        throw e;
+        throw runtime_error(e.what());
     }
     catch (const std::exception& e) {
         cerr << "General error: " << e.what() << endl;
-        throw e;
+        throw runtime_error(e.what());
     }
 }
 
@@ -254,5 +265,28 @@ void API::gossipState() {
         try {
             Message reply = sendCloudMessage(shardEndpoint, m);
         } catch (const exception& e) {}
+    }
+}
+
+void API::updateCloudNodes() {
+    Message m = Message::get_nodes(origin, Util::now_ms());
+    string endpoint = getShardEndpoint();
+    lock_guard<shared_mutex> g(shardMutex);
+    for (auto [shardId, endpoints]: shardEndpoints) {
+        endpoints.clear();
+    }
+
+    try {
+        Message reply = sendCloudMessage(endpoint, m);
+        if (reply.op == OpType::NODES_RESPONSE) {
+            for (const auto& nodeInfo : reply.nodes) {
+                string addr = "tcp://" + nodeInfo.host + ":" + to_string(nodeInfo.clientPort);
+                shardEndpoints[nodeInfo.shardId].push_back(addr);
+            }
+        } else {
+            throw runtime_error("Unexpected response op when getting cloud nodes");
+        }
+    } catch (const exception& e) {
+        cerr << "Error updating cloud nodes: " << e.what() << endl;
     }
 }

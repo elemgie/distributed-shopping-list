@@ -56,6 +56,37 @@ namespace message
         return m;
     }
 
+    Message Message::gossip_nodes(const std::string& origin, uint64_t ts,
+                                  const std::vector<NodeInfo>& nodes)
+    {
+        Message m;
+        m.op = OpType::GOSSIP_NODES;
+        m.origin = origin;
+        m.ts = ts;
+        m.nodes = nodes;
+        return m;
+    }
+
+    Message Message::get_nodes(const std::string& origin, uint64_t ts)
+    {
+        Message m;
+        m.op = OpType::GET_NODES;
+        m.origin = origin;
+        m.ts = ts;
+        return m;
+    }
+
+    Message Message::nodes_response(const std::string& origin, uint64_t ts,
+                                    const std::vector<NodeInfo>& nodes)
+    {
+        Message m;
+        m.op = OpType::NODES_RESPONSE;
+        m.origin = origin;
+        m.ts = ts;
+        m.nodes = nodes;
+        return m;
+    }
+
     zmq::message_t Message::to_zmq() const
     {
         msgpack::sbuffer buf;
