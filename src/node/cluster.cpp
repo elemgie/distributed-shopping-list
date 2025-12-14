@@ -25,44 +25,48 @@ int main() {
 
     const int numShards = 2;
     const int replicasPerShard = 3;
-        const int N = numShards * replicasPerShard;
+    const int N = numShards * replicasPerShard;
+    const int baseClientPort = 5000;
+    const int baseGossipPullPort = 7000;
+    const int baseDiscoveryPullPort = 8000;
 
     // ----------------------------
     // Build configs
     // ----------------------------
     vector<NodeConfig> cfgs(N);
-
     for (int i = 0; i < N; i++) {
         cfgs[i].nodeId   = "N" + to_string(i);
         cfgs[i].host     = "127.0.0.1";
-        cfgs[i].clientPort      = 5000 + i;
-        cfgs[i].pubPort         = 6000 + i;   // unused, but must bind
-        cfgs[i].gossipPullPort  = 7000 + i;
-
+        cfgs[i].clientPort      = baseClientPort + i;
+        cfgs[i].gossipPullPort  = baseGossipPullPort + i;
+        cfgs[i].discoveryPullPort = baseDiscoveryPullPort + i;
+        cfgs[i].gossipPushPort = 0; // Not used directly
+        cfgs[i].discoveryPushPort = 0; // Not used directly
         cfgs[i].numShards = numShards;
-        cfgs[i].shardId   = (i < replicasPerShard) ? 0 : 1;
-
-        cfgs[i].gossipIntervalMs = 300; // fast for test
-        cfgs[i].dbPath = "db/" + to_string(i) + "test.db";
         cfgs[i].shardId   = i / replicasPerShard;
-        cfgs[i].replicationFactor = replicasPerShard;
+        cfgs[i].gossipIntervalMs = 300;
+        cfgs[i].discoveryIntervalMs = 1000;
+        cfgs[i].discoveryTimeoutMs = 5000;
+        cfgs[i].dbPath = to_string(i) + "test.db";
     }
 
-    // ----------------------------
-    // Fully interconnect each shard (gossip)
-    // ----------------------------
-    auto add_edge = [&](int from, int to) {
-        string pull = "tcp://" + cfgs[to].host + ":" + to_string(cfgs[to].gossipPullPort);
-        cfgs[from].peerGossipPullEndpoints.push_back(pull);
-    };
+    vector<NodeInfo> allNodeInfos(N);
+    for (int i = 0; i < N; i++) {
+        allNodeInfos[i] = NodeInfo{
+            cfgs[i].nodeId,
+            cfgs[i].host,
+            cfgs[i].shardId,
+            cfgs[i].clientPort,
+            cfgs[i].gossipPullPort,
+            cfgs[i].discoveryPullPort,
+        };
+    }
 
-    for (int shard = 0; shard < numShards; ++shard) {
-        int start = shard * replicasPerShard;
-        int end = start + replicasPerShard;
-        for (int i = start; i < end; ++i) {
-            for (int j = start; j < end; ++j) {
-                if (i != j) add_edge(i, j);
-            }
+    // Assign initialPeers for each node (all except self)
+    for (int i = 0; i < N; i++) {
+        cfgs[i].initialPeers.clear();
+        for (int j = 0; j < N; j++) {
+            if (i != j) cfgs[i].initialPeers.push_back(allNodeInfos[j]);
         }
     }
 
