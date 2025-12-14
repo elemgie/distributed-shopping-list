@@ -6,7 +6,7 @@ Group members:
 
 1. Mateusz Gieroba (up202501728@fe.up.pt)
 2. Jakub Popiel    (up202501735@fe.up.pt)
-3. &lt;first name&gt; &lt;family name&gt; (&lt;email address&gt;)
+3. Rodrigo Tsou    (up202208354@fe.up.pt)
 
 ## Description
 
