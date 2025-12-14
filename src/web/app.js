@@ -140,6 +140,7 @@
     }
     try {
       const list = await apiGetList(currentListId);
+      listNameInput.value = list.name || listNameInput.value;
       currentListEl.textContent = `${list.name || currentListId} (${currentListId})`;
       renderItems(list);
     } catch (err) {
@@ -199,7 +200,7 @@
       const list = await apiGetList(uid);
       currentListId = uid;
 
-      listNameInput.value = list.name || listNameInput.value;
+      listNameInput.value = list.name || '';
       currentListEl.textContent = `${list.name || currentListId} (${currentListId})`;
       renderItems(list);
     } catch (err) {
