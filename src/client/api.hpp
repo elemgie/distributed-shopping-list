@@ -4,6 +4,8 @@
 #include <zmq.hpp>
 #include <string>
 #include <mutex>
+#include <shared_mutex>
+#include <unordered_map>
 #include <random>
 #include <ctime>
 #include <stdexcept>
@@ -28,6 +30,7 @@ public:
     ShoppingList removeItem(const std::string &listUID, const std::string &itemUID);
     void deleteShoppingList(const std::string &listUID);
     void gossipState();
+    void updateCloudNodes();
 
 private:
     SqliteDb *db;
@@ -37,10 +40,12 @@ private:
     zmq::socket_t clientSocket;
     std::string currentEndpoint;
     std::mutex socketMutex, dbMutex; // dbMutex is used to protect db access between gossip read and request writes
+    std::shared_mutex shardMutex;
     std::string createUID(size_t length = 32);
     unordered_map<int, std::vector<std::string>> shardEndpoints;
     std::mt19937 randomEngine;
 
+    string getShardEndpoint();
     string getShardEndpoint(const string& listUID);
     string getShardEndpoint(const ShoppingList& list);
     void setNodeEndpoint(const std::string &nodeEndpoint);

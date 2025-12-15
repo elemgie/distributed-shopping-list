@@ -46,6 +46,13 @@ int main(int argc, char* argv[]) {
         }
     });
 
+    thread nodeUpdateThread = thread([&api]() {
+        while (!stop_flag) {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            api.updateCloudNodes();
+        }
+    });
+
     std::cout << "Server is running at " << addr.host() << ":" << addr.port() << std::endl;\
 
     while (!stop_flag) {
@@ -55,6 +62,9 @@ int main(int argc, char* argv[]) {
     std::cout << "\nShutting down server..." << std::endl;
     if (gossipThread.joinable()) {
         gossipThread.join();
+    }
+    if (nodeUpdateThread.joinable()) {
+        nodeUpdateThread.join();
     }
     server.shutdown();
     std::cout << "Server stopped." << std::endl;

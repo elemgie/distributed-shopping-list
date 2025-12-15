@@ -34,6 +34,16 @@ To compile src/node/cluster.cpp (a simple cluster with two shards and a replicat
 
 Then run `cluster.out`
 
+## Interactive cloud server
+
+Use
+
+```
+g++ -g -O0 -fsanitize=address -fno-omit-frame-pointer --std=c++20 src/model/shopping_item.cpp src/model/shopping_list.cpp   src/persistence/sqlite_db.cpp src/node/node.cpp src/util.cpp src/message/message.cpp src/cluster.cpp -Isrc -Imsgpack-c/include -lzmq -lsqlite3 -pthread -o backend
+```
+
+to compile, then run `backend`
+
 ### Cleaning
 
 To remove effects of previous compilations run ```make clean```.

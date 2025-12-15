@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <thread>
 #include <atomic>
 #include <zmq.hpp>
@@ -14,18 +15,19 @@
 
 struct NodeConfig {
     std::string nodeId;
-    std::string host;           // e.g. "127.0.0.1"
-    int clientPort;             // REP port for clients
-    int pubPort;                // this node's PUB port (its own endpoint)
-    int gossipPushPort;         // this node PUSHes to peer pull ports
-    int gossipPullPort;         // this node listens on this PULL port
-    std::vector<std::string> peerPubEndpoints; // other replicas' pub endpoints (tcp://host:port)
-    std::vector<std::string> peerGossipPullEndpoints; // "tcp://host:port" entries
+    std::string host;
+    int clientPort;
+    int gossipPushPort;
+    int gossipPullPort;
+    int discoveryPushPort;
+    int discoveryPullPort;
+    std::vector<message::NodeInfo> initialPeers; // replaces replicaPullEndpoints and discoveryPeers
     std::string dbPath;
-    int shardId;                // shard this node is responsible for
+    int shardId;
     int numShards;
-    int replicationFactor;
     int gossipIntervalMs;
+    int discoveryIntervalMs;
+    int discoveryTimeoutMs;
 };
 
 class Node {
@@ -35,34 +37,41 @@ public:
 
     void start();
     void stop();
-    void run_loop();            // internal loop (public for simulation convenience)
-    void addPeerPubEndpoint(const std::string& ep);
+    void run_loop();
 
 private:
     void handle_client_frame();
-    void handle_sub_frames();
     void handle_gossip_frame();
+    void handle_discovery_frame();
 
     void apply_message(const message::Message& m);
-    void broadcast_message(const message::Message& m);
-    void perform_gossip();
+    void eager_fanout();
+    void perform_shard_gossip();
+    void perform_discovery_gossip();
+    void evict_dead_nodes();
+    void update_known_nodes(const std::vector<message::NodeInfo>& nodes);
 
     int shard_for_list(const std::string& listId) const;
-    uint64_t next_gossip_ts() const;
+    uint64_t next_gossip_ts(uint64_t interval) const;
+
+    void handle_peer(const message::NodeInfo& n, uint64_t now = 0);
 
 private:
     NodeConfig cfg;
     zmq::context_t ctx;
     zmq::socket_t repSock;
-    zmq::socket_t pubSock;
-    zmq::socket_t subSock;
     zmq::socket_t gossipPushSock;
     zmq::socket_t gossipPullSock;
+    zmq::socket_t discoveryPushSock;
+    zmq::socket_t discoveryPullSock;
 
+    std::unordered_map<std::string, message::NodeInfo> knownNodes;
+    std::unordered_set<std::string> connectedDiscovery;
+    std::unordered_set<std::string> connectedShard;
 
     SqliteDb db;
     std::thread loopThread;
     std::atomic<bool> running;
 };
 
-#endif // NODE_HPP
+#endif
