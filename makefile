@@ -4,6 +4,9 @@ client:
 cluster:
 	g++ -g -O0 -fsanitize=address -fno-omit-frame-pointer --std=c++20 src/model/shopping_item.cpp src/model/shopping_list.cpp   src/persistence/sqlite_db.cpp src/node/node.cpp src/util.cpp src/message/message.cpp src/node/cluster.cpp -Isrc -Imsgpack-c/include -lzmq -lsqlite3 -pthread -o cluster.out
 
+backend:
+	g++ -g -O0 -fsanitize=address -fno-omit-frame-pointer --std=c++20 src/model/shopping_item.cpp src/model/shopping_list.cpp   src/persistence/sqlite_db.cpp src/node/node.cpp src/util.cpp src/message/message.cpp src/cluster.cpp -Isrc -Imsgpack-c/include -lzmq -lsqlite3 -pthread -o backend.out
+
 clean:
 	rm -f *.out
 
