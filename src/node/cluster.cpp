@@ -47,7 +47,7 @@ int main() {
         cfgs[i].gossipIntervalMs = 300;
         cfgs[i].discoveryIntervalMs = 1000;
         cfgs[i].discoveryTimeoutMs = 5000;
-        cfgs[i].dbPath = to_string(i) + "test.db";
+        cfgs[i].dbPath = "db/" + to_string(i) + "test.db";
     }
 
     vector<NodeInfo> allNodeInfos(N);

@@ -42,7 +42,7 @@ NodeConfig make_config(
     c.gossipIntervalMs = 500;
     c.discoveryIntervalMs = 1000;
     c.discoveryTimeoutMs = 10000;
-    c.dbPath = to_string(idx) + "test.db";
+    c.dbPath = "db/" + to_string(idx) + "test.db";
     return c;
 }
 
